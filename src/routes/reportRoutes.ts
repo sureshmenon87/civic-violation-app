@@ -1,46 +1,72 @@
+// src/routes/reportRoutes.ts
 import express from "express";
-import { requireAuth } from "../middlewares/auth.js";
-import { upload } from "../lib/upload.js";
+import requireAuth from "../middlewares/auth.js";
+import { uploadSingle } from "../middlewares/multerUpload.js";
 import {
   createReport,
-  listReports,
-  getReport,
-  updateReport,
-  deleteReport,
+  getReports,
+  updateReportController,
+  deleteReportController,
 } from "../controllers/reportController.js";
+import { downloadFile } from "../controllers/downloadController.js";
+import { validate } from "../middlewares/validate.js";
 import {
-  validateCreateReport,
-  validateUpdateReport,
+  createReportSchema,
+  updateReportSchema,
 } from "../validators/reportValidator.js";
 
 const router = express.Router();
 
-// Create: supports multipart (photos) and JSON fields
-// If you're POSTing JSON with photos URLs, you can skip multipart and just send body
+/**
+ * @route POST /api/v1/reports
+ * @desc Create a new report (with optional file upload)
+ */
 router.post(
   "/",
-  requireAuth,
-  upload.array("photos", 5),
-  validateCreateReport,
+  requireAuth(),
+  (req, res, next) => {
+    uploadSingle(req, res, (err: any) => {
+      if (err) return res.status(400).json({ error: err.message });
+      return next();
+    });
+  },
+  validate(createReportSchema),
   createReport
 );
 
-// List & create
-router.get("/", listReports);
+/**
+ * @route GET /api/v1/reports
+ * @desc List reports
+ */
+router.get("/", getReports);
 
-// Single
-router.get("/:id", getReport);
-
-// Update (owner/admin). Accepts multipart to add photos
-router.patch(
+/**
+ * @route PUT /api/v1/reports/:id
+ * @desc Update a report (owner or admin, optional file upload)
+ */
+router.put(
   "/:id",
-  requireAuth,
-  upload.array("photos", 5),
-  validateUpdateReport,
-  updateReport
+  requireAuth(),
+  (req, res, next) => {
+    uploadSingle(req, res, (err: any) => {
+      if (err) return res.status(400).json({ error: err.message });
+      return next();
+    });
+  },
+  validate(updateReportSchema),
+  updateReportController
 );
 
-// Soft delete
-router.delete("/:id", requireAuth, deleteReport);
+/**
+ * @route DELETE /api/v1/reports/:id
+ * @desc Delete a report (soft delete by default, ?soft=false for hard delete by admin)
+ */
+router.delete("/:id", requireAuth(), deleteReportController);
+
+/**
+ * @route GET /api/v1/reports/download/:id
+ * @desc Download or redirect to file (GridFS streams, S3/GCS signed URL)
+ */
+router.get("/download/:id", requireAuth(), downloadFile);
 
 export default router;

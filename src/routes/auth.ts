@@ -2,6 +2,10 @@ import express from "express";
 import passport from "passport";
 import { issueTokenAndRespond } from "../controllers/authController.js";
 import { logger } from "../lib/logger.js";
+import {
+  refreshTokenHandler,
+  logoutHandler,
+} from "../controllers/refreshController.js";
 
 const router = express.Router();
 
@@ -75,4 +79,9 @@ router.get("/failure", (_req, res) => {
   res.status(401).json({ error: "Authentication failed" });
 });
 
+// rotate refresh -> new access token
+router.post("/refresh", refreshTokenHandler);
+
+// logout (revoke & clear cookie)
+router.post("/logout", logoutHandler);
 export default router;

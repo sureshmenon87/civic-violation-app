@@ -1,3 +1,4 @@
+// src/models/Report.ts
 import mongoose, { Schema, Document } from "mongoose";
 
 export type ReportStatus =
@@ -7,6 +8,17 @@ export type ReportStatus =
   | "resolved"
   | "rejected";
 
+export type ReportPriority = "low" | "medium" | "high";
+
+export interface IReportPhoto {
+  storage: "gridfs" | "s3" | "gcs" | "local";
+  key: string; // GridFS ObjectId as hex, or S3/GCS object key, or local path
+  url?: string | null; // optional public URL (cached or generated)
+  mime?: string | null;
+  size?: number | null;
+  uploadedAt?: Date | null;
+}
+
 export interface IReport extends Document {
   title: string;
   description?: string;
@@ -15,10 +27,10 @@ export interface IReport extends Document {
     type: "Point";
     coordinates: [number, number]; // [lng, lat]
   };
-  categories: string[];
-  photos: string[]; // URLs or paths
+  categories: string[]; // tags/categories
+  photos: IReportPhoto[]; // structured photo references
   status: ReportStatus;
-  priority?: "low" | "medium" | "high";
+  priority?: ReportPriority;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
@@ -35,7 +47,23 @@ const ReportSchema = new Schema<IReport>(
       coordinates: { type: [Number], required: true }, // [lng, lat]
     },
     categories: { type: [String], default: [] },
-    photos: { type: [String], default: [] },
+    photos: {
+      type: [
+        {
+          storage: {
+            type: String,
+            enum: ["gridfs", "s3", "gcs", "local"],
+            required: true,
+          },
+          key: { type: String, required: true },
+          url: { type: String, default: null },
+          mime: { type: String, default: null },
+          size: { type: Number, default: null },
+          uploadedAt: { type: Date, default: null },
+        },
+      ],
+      default: [],
+    },
     status: {
       type: String,
       enum: ["open", "triaged", "inspected", "resolved", "rejected"],

@@ -6,7 +6,10 @@ import {
 import { Strategy as GitHubStrategy } from "passport-github2";
 import { UserModel } from "../models/User.js";
 import { logger } from "../lib/logger.js";
-
+console.log(
+  "registered strategies",
+  passport.strategies && Object.keys((passport as any)._strategies)
+);
 /**
  * We use passport strategies just to handle the OAuth flow and extract profile info.
  * The callback only returns the profile; actual token issuance is handled in route callback.

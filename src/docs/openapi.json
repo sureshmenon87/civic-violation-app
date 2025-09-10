@@ -192,35 +192,11 @@
       "get": {
         "summary": "List reports",
         "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": { "type": "integer", "default": 1 }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": { "type": "integer", "default": 10 }
-          },
-          { "name": "status", "in": "query", "schema": { "type": "string" } },
-          { "name": "q", "in": "query", "schema": { "type": "string" } },
-          { "name": "lat", "in": "query", "schema": { "type": "number" } },
-          { "name": "lng", "in": "query", "schema": { "type": "number" } },
-          {
-            "name": "radiusMeters",
-            "in": "query",
-            "schema": { "type": "number" }
-          }
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } },
+          { "name": "skip", "in": "query", "schema": { "type": "integer" } }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ReportsList" }
-              }
-            }
-          }
+          "200": { "description": "OK" }
         }
       }
     },
@@ -257,6 +233,64 @@
               }
             }
           }
+        }
+      },
+      "put": {
+        "summary": "Update a report (owner or admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "categories": {
+                    "oneOf": [
+                      { "type": "string" },
+                      { "type": "array", "items": { "type": "string" } }
+                    ]
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high"]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "triaged",
+                      "inspected",
+                      "resolved",
+                      "rejected"
+                    ]
+                  },
+                  "locationLng": { "type": "number" },
+                  "locationLat": { "type": "number" },
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            },
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated" },
+          "403": { "description": "Forbidden" },
+          "401": { "description": "Unauthorized" }
         }
       },
       "patch": {
@@ -333,8 +367,31 @@
         }
       },
       "delete": {
-        "summary": "Soft-delete report",
-        "security": [{ "bearerAuth": [] }, { "cookieAuth": [] }],
+        "summary": "Delete a report (soft by default). Admin can hard delete (also removes storage).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "soft",
+            "in": "query",
+            "schema": { "type": "boolean", "default": true }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "403": { "description": "Forbidden" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/reports/download/{id}": {
+      "get": {
+        "summary": "Download uploaded file (gridfs/s3/gcs)",
         "parameters": [
           {
             "name": "id",
@@ -344,17 +401,9 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": { "ok": { "type": "boolean" } }
-                }
-              }
-            }
-          }
+          "302": { "description": "Redirect to signed URL (for S3/GCS)" },
+          "200": { "description": "Streamed file (GridFS)" },
+          "404": { "description": "File not found" }
         }
       }
     }
