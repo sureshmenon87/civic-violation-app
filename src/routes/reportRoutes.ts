@@ -14,6 +14,7 @@ import {
   createReportSchema,
   updateReportSchema,
 } from "../validators/reportValidator.js";
+import { downloadLimiter } from "../middlewares/rateLimiter.js";
 
 const router = express.Router();
 
@@ -31,6 +32,7 @@ router.post(
     });
   },
   validate(createReportSchema),
+
   createReport
 );
 
@@ -67,6 +69,6 @@ router.delete("/:id", requireAuth(), deleteReportController);
  * @route GET /api/v1/reports/download/:id
  * @desc Download or redirect to file (GridFS streams, S3/GCS signed URL)
  */
-router.get("/download/:id", requireAuth(), downloadFile);
+router.get("/download/:id", downloadLimiter, requireAuth(), downloadFile);
 
 export default router;

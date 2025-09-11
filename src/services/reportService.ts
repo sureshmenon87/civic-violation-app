@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 import { saveFile } from "./storage.js";
 import { logger } from "../lib/logger.js";
 import { deleteFile } from "./storage.js";
+// src/controllers/reportController.ts
+import { Request, Response } from "express";
 
 export async function createReportWithOptionalFile(opts: {
   title: string;
@@ -50,18 +52,38 @@ export async function createReportWithOptionalFile(opts: {
   return report;
 }
 
-export async function listReports(
-  query: { limit?: number; skip?: number } = {}
-) {
-  const limit = Math.min(100, query.limit ?? 50);
-  const skip = query.skip ?? 0;
-  return ReportModel.find()
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .populate("reporterId", "email name")
-    .lean();
-}
+export const listReports = async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page || "1"), 10));
+    const limit = Math.min(100, parseInt(String(req.query.limit || "10"), 10));
+    const sort = String(req.query.sort || "newest"); // newest | oldest
+    const category = req.query.category ? String(req.query.category) : null;
+
+    const skip = (page - 1) * limit;
+    const sortObj = sort === "oldest" ? { createdAt: 1 } : { createdAt: -1 };
+
+    const match: any = { deletedAt: null };
+    if (category) match.categories = category; // categories is array; match element
+
+    const [data, total] = await Promise.all([
+      ReportModel.find(match)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+      ReportModel.countDocuments(match).exec(),
+    ]);
+
+    res.json({
+      data,
+      meta: { page, limit, total, pages: Math.ceil(total / limit) },
+    });
+  } catch (err) {
+    console.error("listReports error", err);
+    res.status(500).json({ error: "Failed to list reports" });
+  }
+};
 
 /**
  * Update a report (partial update). Only owner or admin allowed.

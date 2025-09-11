@@ -27,17 +27,26 @@ router.get(
  */
 router.get(
   "/google/callback",
-  passport.authenticate("google", {
-    session: false,
-    failureRedirect: "/auth/failure",
-  }),
+  passport.authenticate("google", { session: false }),
   async (req, res) => {
     try {
-      // req.user should be the user document (from strategy)
-      await issueTokenAndRespond(res, req.user, req as any);
+      const user = (req as any).user;
+      // set cookie & get token info (no response sent here)
+      await issueTokenAndRespond(res, user, req);
+
+      // Now redirect to frontend callback. Do NOT send other body after this.
+      const frontendCallback = process.env.FRONTEND_ORIGIN
+        ? `${process.env.FRONTEND_ORIGIN}/callback`
+        : `${
+            process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+          }/callback`;
+
+      return res.redirect(frontendCallback);
     } catch (err) {
-      logger.error("google callback error", { err });
-      res.status(500).json({ error: "OAuth callback error" });
+      logger.error("google callback error", {
+        err: (err as any).message || err,
+      });
+      return res.status(500).json({ error: "OAuth flow failed" });
     }
   }
 );

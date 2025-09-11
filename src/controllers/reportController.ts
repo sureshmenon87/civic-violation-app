@@ -17,8 +17,18 @@ export const createReport = async (
     const userId = (req as any).auth?.sub;
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-    const { title, description, categories, locationLng, locationLat } =
-      req.body;
+    const { title, description, locationLng, locationLat } = req.body;
+    let categories = req.body.categories;
+    if (typeof categories === "string") {
+      try {
+        categories = JSON.parse(categories);
+      } catch (e) {
+        categories = categories
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+    }
     const file = (req as any).file as Express.Multer.File | undefined;
 
     const report = await createReportWithOptionalFile({
@@ -43,9 +53,7 @@ export const getReports = async (
   next: NextFunction
 ) => {
   try {
-    const limit = Number(req.query.limit || 50);
-    const skip = Number(req.query.skip || 0);
-    const results = await listReports({ limit, skip });
+    const results = await listReports(req, res);
     res.json(results);
   } catch (err) {
     next(err);

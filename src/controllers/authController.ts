@@ -59,7 +59,7 @@ export const issueTokenAndRespond = async (
 
     // Respond with access token + safe user object
     const safeUser = serializeUserForClient(userDoc);
-    res.json({ token: accessToken, user: safeUser });
+    return { accessToken, user: safeUser };
   } catch (err) {
     logger.error("issueTokenAndRespond:error", { err: serializeError(err) });
     // in callback handlers we usually call next(err) but here we return 500
