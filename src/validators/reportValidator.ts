@@ -13,7 +13,7 @@ export const createReportSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().optional(),
   // Accept either an array of strings or a single comma-separated string in controllers if needed.
-  categories: z.array(z.enum(CATEGORIES)).optional(),
+  categories: z.array(z.string()).optional(),
   locationLng: z.preprocess(
     (val) => (val === undefined || val === "" ? undefined : Number(val)),
     z

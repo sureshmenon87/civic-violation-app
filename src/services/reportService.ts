@@ -65,7 +65,46 @@ export const listReports = async (req: Request, res: Response) => {
     const match: any = { deletedAt: null };
     if (category) match.categories = category; // categories is array; match element
 
-    const [data, total] = await Promise.all([
+    const pipeline = [
+      { $match: match }, // your existing match (deletedAt: null, category, ...)
+      {
+        $lookup: {
+          from: "users",
+          localField: "reporterId",
+          foreignField: "_id",
+          as: "reporter",
+        },
+      },
+      { $unwind: { path: "$reporter", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "comments",
+          let: { id: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$reportId", "$$id"] } } },
+            { $count: "n" },
+          ],
+          as: "commentsCount",
+        },
+      },
+      {
+        $addFields: {
+          reporterName: "$reporter.name",
+          reporterAvatar: "$reporter.avatar",
+          commentsCount: { $arrayElemAt: ["$commentsCount.n", 0] },
+        },
+      },
+      { $sort: sortObj },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $project: {
+          reporter: 0 /* hide populated nested object if not needed */,
+        },
+      },
+    ];
+
+    /* const [data, total] = await Promise.all([
       ReportModel.find(match)
         .sort(sortObj)
         .skip(skip)
@@ -73,7 +112,9 @@ export const listReports = async (req: Request, res: Response) => {
         .lean()
         .exec(),
       ReportModel.countDocuments(match).exec(),
-    ]);
+    ]);*/
+    const data = await ReportModel.aggregate(pipeline).exec();
+    const total = await ReportModel.countDocuments(match);
 
     res.json({
       data,

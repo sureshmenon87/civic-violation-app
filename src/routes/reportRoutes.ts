@@ -7,6 +7,7 @@ import {
   getReports,
   updateReportController,
   deleteReportController,
+  getReport,
 } from "../controllers/reportController.js";
 import { downloadFile } from "../controllers/downloadController.js";
 import { validate } from "../middlewares/validate.js";
@@ -15,6 +16,7 @@ import {
   updateReportSchema,
 } from "../validators/reportValidator.js";
 import { downloadLimiter } from "../middlewares/rateLimiter.js";
+import normalizeCategories from "../middlewares/normalizeCategories.js";
 
 const router = express.Router();
 
@@ -31,10 +33,17 @@ router.post(
       return next();
     });
   },
+  normalizeCategories,
   validate(createReportSchema),
 
   createReport
 );
+
+/**
+ * @route GET /api/v1/reports:id
+ * @desc List reports
+ */
+router.get("/:id", requireAuth(), getReport);
 
 /**
  * @route GET /api/v1/reports
@@ -69,6 +78,6 @@ router.delete("/:id", requireAuth(), deleteReportController);
  * @route GET /api/v1/reports/download/:id
  * @desc Download or redirect to file (GridFS streams, S3/GCS signed URL)
  */
-router.get("/download/:id", downloadLimiter, requireAuth(), downloadFile);
+router.get("/download/:id", downloadLimiter, downloadFile);
 
 export default router;

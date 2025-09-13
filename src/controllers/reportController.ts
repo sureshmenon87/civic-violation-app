@@ -7,6 +7,9 @@ import {
   softDeleteReport,
   updateReport,
 } from "../services/reportService.js";
+import { CategoryModel } from "../models/Category.js";
+import { CommentModel } from "../models/Comment.js";
+import { ReportModel } from "../models/Report.js";
 
 export const createReport = async (
   req: Request,
@@ -17,18 +20,47 @@ export const createReport = async (
     const userId = (req as any).auth?.sub;
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-    const { title, description, locationLng, locationLat } = req.body;
-    let categories = req.body.categories;
-    if (typeof categories === "string") {
-      try {
-        categories = JSON.parse(categories);
-      } catch (e) {
-        categories = categories
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
+    const {
+      title,
+      description,
+      locationLng,
+      locationLat,
+      categories = [],
+    } = req.body;
+    // Parse categories that might be sent as JSON string or array or comma string
+
+    // categories is already normalized to array by middleware
+    const catKeys: string[] = Array.isArray(categories)
+      ? categories.map(String)
+      : [];
+
+    // Validate categories exist in DB (dynamic categories approach)
+    if (catKeys.length) {
+      const found = await CategoryModel.find({ key: { $in: catKeys } }).lean();
+      if (found.length !== catKeys.length) {
+        const foundKeys = new Set(found.map((c: any) => c.key));
+        const invalid = catKeys.filter((k) => !foundKeys.has(k));
+        return res.status(400).json({ error: "Invalid categories", invalid });
       }
     }
+
+    // validate coords
+    const lng = Number(locationLng);
+    const lat = Number(locationLat);
+    if (!isFinite(lng) || !isFinite(lat)) {
+      return res.status(400).json({ error: "Invalid location coordinates" });
+    }
+    // Validate categories against DB
+    const allowed = await CategoryModel.find({
+      key: { $in: categories },
+    }).lean();
+    if (allowed.length !== categories.length) {
+      // find invalid keys
+      const allowedKeys = new Set(allowed.map((c) => c.key));
+      const invalid = categories.filter((c) => !allowedKeys.has(c));
+      return res.status(400).json({ error: "Invalid categories", invalid });
+    }
+
     const file = (req as any).file as Express.Multer.File | undefined;
 
     const report = await createReportWithOptionalFile({
@@ -46,7 +78,24 @@ export const createReport = async (
     return next(err);
   }
 };
+export const getReport = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const report = await ReportModel.findById(id).lean();
+    if (!report) return res.status(404).json({ error: "Not found" });
 
+    // populate categories details if you stored keys
+    const cats = await CategoryModel.find({
+      key: { $in: report.categories || [] },
+    }).lean();
+    const commentsCount = await CommentModel.countDocuments({ reportId: id });
+
+    res.json({ data: { report, categories: cats, commentsCount } });
+  } catch (err) {
+    console.error("getReport error", err);
+    res.status(500).json({ error: "Failed to load report" });
+  }
+};
 export const getReports = async (
   req: Request,
   res: Response,
@@ -111,8 +160,17 @@ export const deleteReportController = async (
     const actorId = (req as any).auth?.sub;
     const actorRole = (req as any).auth?.role;
     if (!actorId) return res.status(401).json({ error: "Unauthorized" });
-
     const reportId = req.params.id;
+    const report = await ReportModel.findById(reportId);
+    if (!report) return 404;
+    const userId = req.auth.sub;
+    if (
+      String(report.reporterId) !== String(userId) &&
+      req.auth.role !== "admin"
+    ) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
     const soft = req.query.soft !== "false"; // default true (soft delete)
 
     if (soft) {

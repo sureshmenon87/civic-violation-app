@@ -17,6 +17,8 @@ import reportRoutes from "./routes/reportRoutes.js";
 import "./passport/strategies.js";
 import contactRouter from "./routes/contact.js";
 import categoriesRouter from "./routes/categories.js";
+import commentsRouter from "./routes/comments.js";
+import "./routes/avatarProxy.js";
 console.log(
   "Registered strategies:",
   Object.keys((passport as any)._strategies)
@@ -94,6 +96,7 @@ async function start() {
     app.use("/api/v1/reports", reportRoutes);
     app.use("/api/v1/contact", contactRouter);
     app.use("/api/v1/categories", categoriesRouter);
+    app.use("/api/v1/comments", commentsRouter);
 
     // 6) Swagger (docs) - keep protected in production if needed
     // We mount swagger at /docs — ensure this is after auth if you protect docs with requireAuth
